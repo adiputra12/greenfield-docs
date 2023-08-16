@@ -110,12 +110,28 @@ message Params {
 
   // deposit_denom defines the staking coin denomination.
   string deposit_denom = 1;
-  // min_deposit_amount defines the minimum deposit amount for storage providers.
+  // min_deposit defines the minimum deposit amount for storage providers.
   string min_deposit = 2 [
     (cosmos_proto.scalar) = "cosmos.Int",
     (gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Int",
     (gogoproto.nullable) = false
   ];
+  // the ratio of the store price of the secondary sp to the primary sp, the default value is 12%
+  string secondary_sp_store_price_ratio = 3 [
+    (cosmos_proto.scalar) = "cosmos.Dec",
+    (gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Dec",
+    (gogoproto.nullable) = false
+  ];
+  // previous blocks that be traced back to for maintenance_records
+  int64 num_of_historical_blocks_for_maintenance_records = 4 [(gogoproto.moretags) = "yaml:\"num_of_historical_blocks_for_maintenance_records\""];
+  // the max duration that a SP can be in_maintenance within num_of_historical_blocks_for_maintenance_records
+  int64 maintenance_duration_quota = 5 [(gogoproto.moretags) = "yaml:\"maintenance_duration_quota\""];
+  // the number of blocks to be wait for sp to be in maintenance mode again if already requested
+  int64 num_of_lockup_blocks_for_maintenance = 6 [(gogoproto.moretags) = "yaml:\"num_of_lockup_blocks_for_maintenance\""];
+  // the time interval to update global storage price, if it is not set then the price will be updated at the first block of each natural month
+  uint64 update_global_price_interval = 7 [(gogoproto.moretags) = "yaml:\"update_global_price_interval\""];
+  // the days counting backwards from end of a month in which a sp cannot update its price
+  uint32 update_price_disallowed_days = 8 [(gogoproto.moretags) = "yaml:\"update_price_disallowed_days\""];
 }
 ```
 
@@ -193,3 +209,37 @@ This message is expected to fail if:
 
 * The storage provider doesn't exist;
 * The tokens that are deposited do not belong to the denomination that is specified as the deposit denomination of the SP module.
+
+### UpdateSpStoragePrice
+
+A storage provider can update its free read quote, suggested primary store price and read price. All SPs' suggested primary store and 
+read prices will be used to generate the global primary/secondary store price and read price. 
+
+```protobuf
+// MsgUpdateSpStoragePrice defines a SDK message to update its prices of a SP.
+message MsgUpdateSpStoragePrice {
+  option (cosmos.msg.v1.signer) = "sp_address";
+
+  // sp address
+  string sp_address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // read price, in bnb wei per charge byte
+  string read_price = 2 [
+    (cosmos_proto.scalar) = "cosmos.Dec",
+    (gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Dec",
+    (gogoproto.nullable) = false
+  ];
+  // free read quota, in byte
+  uint64 free_read_quota = 3;
+  // store price, in bnb wei per charge byte
+  string store_price = 4 [
+    (cosmos_proto.scalar) = "cosmos.Dec",
+    (gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Dec",
+    (gogoproto.nullable) = false
+  ];
+}
+```
+
+This message is expected to fail if:
+
+* The storage provider doesn't exist;
+* The storage provider tries to update its prices in the last `update_price_disallowed_days` (default value is 2) days.
